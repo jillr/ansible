@@ -252,6 +252,50 @@ def destroy_user(connection, module):
                          exception=traceback.format_exc())
 
     try:
+        # Remove user's access keys
+        access_keys = connection.list_access_keys(UserName=user_name)["AccessKeyMetadata"]
+        for access_key in access_keys:
+            connection.delete_access_key(UserName=user_name, AccessKeyId=access_key["AccessKeyId"])
+
+        # Remove user's login profile (console password)
+        delete_user_login_profile(connection, module, user_name)
+
+        # Remove user's ssh public keys
+        ssh_public_keys = connection.list_ssh_public_keys(UserName=user_name)["SSHPublicKeys"]
+        for ssh_public_key in ssh_public_keys:
+            connection.delete_ssh_public_key(UserName=user_name, SSHPublicKeyId=ssh_public_key["SSHPublicKeyId"])
+
+        # Remove user's service specific credentials
+        service_credentials = connection.list_service_specific_credentials(UserName=user_name)["ServiceSpecificCredentials"]
+        for service_specific_credential in service_credentials:
+            connection.delete_service_specific_credential(
+                UserName=user_name,
+                ServiceSpecificCredentialId=service_specific_credential["ServiceSpecificCredentialId"]
+            )
+
+        # Remove user's signing certificates
+        signing_certificates = connection.list_signing_certificates(UserName=user_name)["Certificates"]
+        for signing_certificate in signing_certificates:
+            connection.delete_signing_certificate(
+                UserName=user_name,
+                CertificateId=signing_certificate["CertificateId"]
+            )
+
+        # Remove user's MFA devices
+        mfa_devices = connection.list_mfa_devices(UserName=user_name)["MFADevices"]
+        for mfa_device in mfa_devices:
+            connection.deactivate_mfa_device(UserName=user_name, SerialNumber=mfa_device["SerialNumber"])
+
+        # Remove user's inline policies
+        inline_policies = connection.list_user_policies(UserName=user_name)["PolicyNames"]
+        for policy_name in inline_policies:
+            connection.delete_user_policy(UserName=user_name, PolicyName=policy_name)
+
+        # Remove user's group membership
+        user_groups = connection.list_groups_for_user(UserName=user_name)["Groups"]
+        for group in user_groups:
+            connection.remove_user_from_group(UserName=user_name, GroupName=group["GroupName"])
+
         connection.delete_user(UserName=user_name)
     except ClientError as e:
         module.fail_json(msg="Unable to delete user {0}: {1}".format(user_name, to_native(e)),
@@ -287,6 +331,18 @@ def get_attached_policy_list(connection, module, name):
             return None
         else:
             module.fail_json(msg="Unable to get policies for user {0}: {1}".format(name, to_native(e)),
+                             **camel_dict_to_snake_dict(e.response))
+
+
+def delete_user_login_profile(connection, module, user_name):
+
+    try:
+        return connection.delete_login_profile(UserName=user_name)
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchEntity":
+            return None
+        else:
+            module.fail_json(msg="Unable to delete login profile for user {0}: {1}".format(user_name, to_native(e)),
                              **camel_dict_to_snake_dict(e.response))
 
 
