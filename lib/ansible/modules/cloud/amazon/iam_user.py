@@ -227,10 +227,9 @@ def create_or_update_user(connection, module):
 
 def destroy_user(connection, module):
 
-    params = dict()
-    params['UserName'] = module.params.get('name')
+    user_name = module.params.get('name')
 
-    user = get_user(connection, module, params['UserName'])
+    user = get_user(connection, module, user_name)
     # User is not present
     if not user:
         module.exit_json(changed=False)
@@ -241,24 +240,24 @@ def destroy_user(connection, module):
 
     # Remove any attached policies otherwise deletion fails
     try:
-        for policy in get_attached_policy_list(connection, module, params['UserName']):
-            connection.detach_user_policy(UserName=params['UserName'], PolicyArn=policy['PolicyArn'])
+        for policy in get_attached_policy_list(connection, module, user_name):
+            connection.detach_user_policy(UserName=user_name, PolicyArn=policy['PolicyArn'])
     except ClientError as e:
         module.fail_json(msg="Unable to detach policy {0} from user {1}: {2}".format(
-                         policy['PolicyArn'], params['UserName'], to_native(e)),
+                         policy['PolicyArn'], user_name, to_native(e)),
                          exception=traceback.format_exc(), **camel_dict_to_snake_dict(e.response))
     except ParamValidationError as e:
         module.fail_json(msg="Unable to detach policy {0} from user {1}: {2}".format(
-                         policy['PolicyArn'], params['UserName'], to_native(e)),
+                         policy['PolicyArn'], user_name, to_native(e)),
                          exception=traceback.format_exc())
 
     try:
-        connection.delete_user(**params)
+        connection.delete_user(UserName=user_name)
     except ClientError as e:
-        module.fail_json(msg="Unable to delete user {0}: {1}".format(params['UserName'], to_native(e)),
+        module.fail_json(msg="Unable to delete user {0}: {1}".format(user_name, to_native(e)),
                          exception=traceback.format_exc(), **camel_dict_to_snake_dict(e.response))
     except ParamValidationError as e:
-        module.fail_json(msg="Unable to delete user {0}: {1}".format(params['UserName'], to_native(e)),
+        module.fail_json(msg="Unable to delete user {0}: {1}".format(user_name, to_native(e)),
                          exception=traceback.format_exc())
 
     module.exit_json(changed=True)
