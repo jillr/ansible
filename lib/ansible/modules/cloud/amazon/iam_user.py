@@ -99,7 +99,7 @@ user:
 '''
 
 from ansible.module_utils._text import to_native
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.aws.core import AnsibleAWSModule
 from ansible.module_utils.ec2 import camel_dict_to_snake_dict, ec2_argument_spec, get_aws_connection_info, boto3_conn
 from ansible.module_utils.ec2 import HAS_BOTO3
 
@@ -301,8 +301,8 @@ def destroy_user(connection, module):
         module.fail_json(msg="Unable to delete user {0}: {1}".format(user_name, to_native(e)),
                          exception=traceback.format_exc(), **camel_dict_to_snake_dict(e.response))
     except ParamValidationError as e:
-        module.fail_json(msg="Unable to delete user {0}: {1}".format(user_name, to_native(e)),
-                         exception=traceback.format_exc())
+        module.fail_json_aws(msg="Unable to delete user {0}: {1}".format(user_name, to_native(e)),
+                             exception=traceback.format_exc())
 
     module.exit_json(changed=True)
 
@@ -330,8 +330,8 @@ def get_attached_policy_list(connection, module, name):
         if e.response['Error']['Code'] == 'NoSuchEntity':
             return None
         else:
-            module.fail_json(msg="Unable to get policies for user {0}: {1}".format(name, to_native(e)),
-                             **camel_dict_to_snake_dict(e.response))
+            module.fail_json_aws(msg="Unable to get policies for user {0}: {1}".format(name, to_native(e)),
+                                 **camel_dict_to_snake_dict(e.response))
 
 
 def delete_user_login_profile(connection, module, user_name):
@@ -342,8 +342,8 @@ def delete_user_login_profile(connection, module, user_name):
         if e.response["Error"]["Code"] == "NoSuchEntity":
             return None
         else:
-            module.fail_json(msg="Unable to delete login profile for user {0}: {1}".format(user_name, to_native(e)),
-                             **camel_dict_to_snake_dict(e.response))
+            module.fail_json_aws(msg="Unable to delete login profile for user {0}: {1}".format(user_name, to_native(e)),
+                                 **camel_dict_to_snake_dict(e.response))
 
 
 def main():
@@ -358,7 +358,7 @@ def main():
         )
     )
 
-    module = AnsibleModule(
+    module = AnsibleAWSModule(
         argument_spec=argument_spec,
         supports_check_mode=True
     )
