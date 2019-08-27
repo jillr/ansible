@@ -1,0 +1,60 @@
+- name: set up aws connection info
+  set_fact:
+    aws_connection_info: &aws_connection_info
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      security_token: "{{ security_token }}"
+      region: "{{ aws_region }}"
+  no_log: yes
+
+- name: Test that a user can be created, attached to a group, and then removed
+  block:
+    - name: ensure ansible user exists
+      iam_user:
+        name: AnsibleTestUser
+        state: present
+        <<: *aws_connection_info
+      register: iam_user
+
+    - name: assert that the user is newly created
+      assert:
+        that:
+          - iam_user is changed
+
+    - name: ensure group exists
+      iam_group:
+        name: ansible_test
+        users:
+          - AnsibleTestUser
+        state: present
+        <<: *aws_connection_info
+      register: iam_group
+
+    - assert:
+        that:
+          - iam_group.changed
+          - iam_group.iam_group.users
+
+    - name: remove ansible user
+      iam_user:
+        name: AnsibleTestUser
+        state: absent
+        <<: *aws_connection_info
+      register: iam_user_remove
+
+    - assert:
+        that:
+          - iam_user_remove.changed
+
+  always:
+    - name: remove group
+      iam_group:
+        name: ansible_test
+        state: absent
+        <<: *aws_connection_info
+
+    - name: re-remove ansible user, to ensure repeatability
+      iam_user:
+        name: AnsibleTestUser
+        state: absent
+        <<: *aws_connection_info
